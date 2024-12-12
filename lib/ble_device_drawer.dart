@@ -18,6 +18,17 @@ class _BleDeviceDrawerState extends State<BleDeviceDrawer> {
   final MidiCommand _midiCommand = MidiCommand();
   bool _didAskForBluetoothPermissions = false;
 
+  String _message = '正在搜索蓝牙设备 ...';
+  final messages = {
+    BluetoothState.unsupported: '此设备不支持蓝牙。',
+    BluetoothState.poweredOff: '请打开蓝牙后重试。',
+    BluetoothState.poweredOn: '一切正常。',
+    BluetoothState.resetting: '当前正在重置。请稍后再试。',
+    BluetoothState.unauthorized: '此应用需要蓝牙权限。请打开设置，找到您的应用并分配蓝牙访问权限，然后重新启动您的应用。',
+    BluetoothState.unknown: '蓝牙尚未准备好。请稍后再试。',
+    BluetoothState.other: '这不应该发生。请通知您的应用开发者。',
+  };
+
   @override
   void initState() {
     super.initState();
@@ -37,9 +48,9 @@ class _BleDeviceDrawerState extends State<BleDeviceDrawer> {
   void _scanForDevices() async {
     debugPrint("start ble central");
     await _midiCommand.startBluetoothCentral().catchError((err) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(err),
-      ));
+      setState(() {
+        _message = err.toString();
+      });
     });
 
     debugPrint("ble scan init");
@@ -52,42 +63,20 @@ class _BleDeviceDrawerState extends State<BleDeviceDrawer> {
     // If bluetooth is powered on, start scanning
     if (_midiCommand.bluetoothState == BluetoothState.poweredOn) {
       _midiCommand.startScanningForBluetoothDevices().catchError((err) {
-        if (kDebugMode) {
-          print("Error $err");
-        }
+        setState(() {
+          _message = "Error: $err";
+        });
       });
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Scanning for bluetooth devices ...'),
-        ));
-      }
     } else {
-      final messages = {
-        BluetoothState.unsupported:
-        'Bluetooth is not supported on this device.',
-        BluetoothState.poweredOff: 'Please switch on bluetooth and try again.',
-        BluetoothState.poweredOn: 'Everything is fine.',
-        BluetoothState.resetting: 'Currently resetting. Try again later.',
-        BluetoothState.unauthorized:
-        'This app needs bluetooth permissions. Please open settings, find your app and assign bluetooth access rights and start your app again.',
-        BluetoothState.unknown: 'Bluetooth is not ready yet. Try again later.',
-        BluetoothState.other:
-        'This should never happen. Please inform the developer of your app.',
-      };
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          backgroundColor: Colors.red,
-          content: Text(messages[_midiCommand.bluetoothState] ??
-              'Unknown bluetooth state: ${_midiCommand.bluetoothState}'),
-        ));
-      }
+      setState(() {
+        _message = messages[_midiCommand.bluetoothState] ??
+            'Unknown bluetooth state: ${_midiCommand.bluetoothState}';
+      });
     }
 
     if (kDebugMode) {
       print("done");
     }
-    // If not show a message telling users what to do
-    setState(() {});
   }
 
   @override
@@ -97,24 +86,25 @@ class _BleDeviceDrawerState extends State<BleDeviceDrawer> {
       child: Column(
         children: <Widget>[
           SizedBox(
-            height: 29.sp, // Set the drawer header height
+            height: 29.sp,
+            width: double.infinity,
             child: DrawerHeader(
               padding: EdgeInsets.fromLTRB(6.sp, 0, 0, 0),
               margin: const EdgeInsets.all(0),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary,
-              ),
               child: Text(
-                '列表',
+                '设备列表',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: Colors.black,
                   fontSize: 8.sp,
                 ),
               ),
             ),
           ),
           Expanded(
-            child: DeviceTile(midiCommand: _midiCommand),
+            child: DeviceTile(
+              midiCommand: _midiCommand,
+              message: _message,
+            ),
           ),
           // Add more ListTile widgets for additional devices
         ],
@@ -122,10 +112,13 @@ class _BleDeviceDrawerState extends State<BleDeviceDrawer> {
     );
   }
 }
+
 class DeviceTile extends StatelessWidget {
   final MidiCommand midiCommand;
+  final String message;
 
-  const DeviceTile({super.key, required this.midiCommand});
+  const DeviceTile(
+      {super.key, required this.midiCommand, required this.message});
 
   @override
   Widget build(BuildContext context) {
@@ -139,62 +132,76 @@ class DeviceTile extends StatelessWidget {
             //   MidiDevice('2', 'aa', 'this.type', true),
             // ];
             devices.add(MidiDevice('2', 'PIANO MIDI', 'BLE', false));
-            devices.add(MidiDevice('2', 'PIANO MIDI', 'native', false));
-
+            devices.add(MidiDevice('2', 'PIANO MIDI 2', 'native', false));
 
             debugPrint("devices: ${devices.length}");
             if (devices.isEmpty) {
-              return const Center(
-                child: Text("未找到设备", style: TextStyle(fontSize: 20, color: Colors.grey)),
+              return Container(
+                padding: const EdgeInsets.only(top: 20),
+                child: const Text("未找到设备",
+                    style: TextStyle(fontSize: 20, color: Colors.grey)),
               );
             }
-            return SizedBox(
-              height: 200, // Set an appropriate height for the ListView
-              child: ListView.builder(
-                itemCount: devices.length,
-                itemBuilder: (context, index) {
-                  MidiDevice device = devices[index];
-                  return ListTile(
-                    title: Text(
-                      device.name,
-                      style: Theme.of(context).textTheme.headlineSmall,
-                    ),
-                    subtitle: Text(
-                        "输入端口:${device.inputPorts.length}个 输出端口:${device.outputPorts.length}个, ${device.id}, ${device.type}"),
-                    leading: Icon(device.connected
-                        ? Icons.radio_button_on
-                        : Icons.radio_button_off),
-                    trailing: Icon(_deviceIconForType(device.type)),
-                    onLongPress: () {
-                      midiCommand.stopScanningForBluetoothDevices();
+            return Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.only(top: 20),
+                  child: Text(message,
+                      style: const TextStyle(fontSize: 20, color: Colors.black)),
+                ),
+                SizedBox(
+                  height: 200, // Set an appropriate height for the ListView
+                  child: ListView.builder(
+                    itemCount: devices.length,
+                    itemBuilder: (context, index) {
+                      MidiDevice device = devices[index];
+                      return ListTile(
+                        title: Text(
+                          device.name,
+                          style: TextStyle(
+                            color:
+                                device.connected ? Colors.green : Colors.black,
+                            fontSize: 6.sp,
+                          ),
+                        ),
+                        subtitle: Text(
+                            "输入端口:${device.inputPorts.length}个 输出端口:${device.outputPorts.length}个, ${device.id}, ${device.type}"),
+                        leading: Icon(device.connected
+                            ? Icons.radio_button_on
+                            : Icons.radio_button_off),
+                        trailing: Icon(_deviceIconForType(device.type)),
+                        onLongPress: () {
+                          midiCommand.stopScanningForBluetoothDevices();
 
-                      Navigator.pop(context);
-                      debugPrint("device selected, ${device.toString()}");
-                    },
-                    onTap: () {
-                      if (device.connected) {
-                        if (kDebugMode) {
-                          print("disconnect");
-                        }
-                        midiCommand.disconnectDevice(device);
-                      } else {
-                        if (kDebugMode) {
-                          print("connect");
-                        }
-                        midiCommand.connectToDevice(device).then((_) {
-                          if (kDebugMode) {
-                            print("device connected async");
+                          Navigator.pop(context);
+                          debugPrint("device selected, ${device.toString()}");
+                        },
+                        onTap: () {
+                          if (device.connected) {
+                            if (kDebugMode) {
+                              print("disconnect");
+                            }
+                            midiCommand.disconnectDevice(device);
+                          } else {
+                            if (kDebugMode) {
+                              print("connect");
+                            }
+                            midiCommand.connectToDevice(device).then((_) {
+                              if (kDebugMode) {
+                                print("device connected async");
+                              }
+                            }).catchError((err) {
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                  content: Text(
+                                      "Error: ${(err as PlatformException?)?.message}")));
+                            });
                           }
-                        }).catchError((err) {
-                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                              content: Text(
-                                  "Error: ${(err as PlatformException?)?.message}")));
-                        });
-                      }
+                        },
+                      );
                     },
-                  );
-                },
-              ),
+                  ),
+                ),
+              ],
             );
           } else {
             return const Center(
@@ -208,7 +215,7 @@ class DeviceTile extends StatelessWidget {
 IconData _deviceIconForType(String type) {
   switch (type) {
     case "native":
-      return Icons.devices;
+      return Icons.route;
     case "BLE":
       return Icons.bluetooth;
     default:
