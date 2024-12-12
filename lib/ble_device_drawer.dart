@@ -5,6 +5,8 @@ import 'package:flutter_midi_command/flutter_midi_command.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import 'ble_searching_animation.dart';
+
 class BleDeviceDrawer extends StatefulWidget {
   const BleDeviceDrawer({
     super.key,
@@ -127,28 +129,25 @@ class DeviceTile extends StatelessWidget {
         builder: (BuildContext context, AsyncSnapshot snapshot) {
           if (snapshot.hasData && snapshot.data != null) {
             var devices = snapshot.data as List<MidiDevice>;
-            // var devices = [
-            //   MidiDevice('1', 'aaaaaaa', 'this.type', false),
-            //   MidiDevice('2', 'aa', 'this.type', true),
-            // ];
-            devices.add(MidiDevice('2', 'PIANO MIDI', 'BLE', false));
-            devices.add(MidiDevice('2', 'PIANO MIDI 2', 'native', false));
+            // devices.add(MidiDevice('2', 'ECG 1', 'BLE', false));
+            // devices.add(MidiDevice('2', 'ECG 2', 'native', false));
 
             debugPrint("devices: ${devices.length}");
             if (devices.isEmpty) {
-              return Container(
-                padding: const EdgeInsets.only(top: 20),
-                child: const Text("未找到设备",
-                    style: TextStyle(fontSize: 20, color: Colors.grey)),
+              return Column(
+                children: [
+                  const SizedBox(height: 40),
+                  const BluetoothSearchingAnimation(),
+                  Container(
+                    padding: const EdgeInsets.only(top: 20),
+                    child: Text(message, style: const TextStyle(fontSize: 20, color: Colors.black)),
+                  ),
+                ],
               );
             }
             return Column(
               children: [
-                Container(
-                  padding: const EdgeInsets.only(top: 20),
-                  child: Text(message,
-                      style: const TextStyle(fontSize: 20, color: Colors.black)),
-                ),
+
                 SizedBox(
                   height: 200, // Set an appropriate height for the ListView
                   child: ListView.builder(
