@@ -133,11 +133,15 @@ class DeviceTile extends StatelessWidget {
         future: midiCommand.devices,
         builder: (BuildContext context, AsyncSnapshot snapshot) {
           if (snapshot.hasData && snapshot.data != null) {
-            // var devices = snapshot.data as List<MidiDevice>;
-            var devices = [
-              MidiDevice('1', 'aaaaaaa', 'this.type', false),
-              MidiDevice('2', 'aa', 'this.type', true),
-            ];
+            var devices = snapshot.data as List<MidiDevice>;
+            // var devices = [
+            //   MidiDevice('1', 'aaaaaaa', 'this.type', false),
+            //   MidiDevice('2', 'aa', 'this.type', true),
+            // ];
+            devices.add(MidiDevice('2', 'PIANO MIDI', 'BLE', false));
+            devices.add(MidiDevice('2', 'PIANO MIDI', 'native', false));
+
+
             debugPrint("devices: ${devices.length}");
             if (devices.isEmpty) {
               return const Center(
